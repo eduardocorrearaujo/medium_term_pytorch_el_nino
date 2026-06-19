@@ -1,0 +1,106 @@
+#################################################
+# Python
+#################################################
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+#################################################
+# Virtual environments
+#################################################
+
+venv/
+env/
+ENV/
+.env/
+.venv/
+
+#################################################
+# Jupyter Notebook
+#################################################
+
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+#################################################
+# IDEs
+#################################################
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+#################################################
+# PyTorch / ML artifacts
+#################################################
+
+# Checkpoints
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+saved_models/
+models/
+
+# Logs
+logs/
+lightning_logs/
+runs/
+wandb/
+mlruns/
+
+# TensorBoard
+tb_logs/
+
+#################################################
+# Data (muito importante em ML)
+#################################################
+
+data/
+datasets/
+*.csv
+*.parquet
+*.feather
+
+# Mas se quiser manter alguns CSVs versionados, remova essa regra
+
+#################################################
+# OS files
+#################################################
+
+.DS_Store
+Thumbs.db
+
+#################################################
+# Poetry / packaging
+#################################################
+
+poetry.lock
+__pypackages__/
+
+#################################################
+# Misc
+#################################################
+
+*.log
+*.tmp
+.cache/
