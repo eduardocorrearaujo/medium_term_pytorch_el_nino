@@ -27,6 +27,8 @@ Após rodar alguns testes observou-se que o modelo 1 realiza previsões de curto
 
 ## Validação dos modelos: 
 
+
+#### Dengue
 Para validar os modelos, resolvi treinar eles com dados até 2022 e prever eles para 2023, ano que foi observado um el niño no segundo semestre. Abaixo estão os resultados agregados por região. Para todos as regiões o modelo misturado ficou em primeiro ou segundo lugar: 
 
 ![](figures/comp_models_dengue_Sul_2023.png)
@@ -38,3 +40,32 @@ Para validar os modelos, resolvi treinar eles com dados até 2022 e prever eles 
 ![](figures/comp_models_dengue_Nordeste_2023.png)
 
 ![](figures/comp_models_dengue_Norte_2023.png)
+
+Performance do modelo por estado. Os estados estão agrupados de acordo com a região pertencente. 
+
+![](figures/comp_models_state_dengue_Sul_2023.png)
+![](figures/comp_models_state_dengue_Sudeste_2023.png)
+![](figures/comp_models_state_dengue_Centro-Oeste_2023.png)
+![](figures/comp_models_state_dengue_Nordeste_2023.png)
+![](figures/comp_models_state_dengue_Norte_2023.png)
+
+#### Chikungunya
+Para validar os modelos, resolvi treinar eles com dados até 2022 e prever eles para 2023, ano que foi observado um el niño no segundo semestre. Abaixo estão os resultados agregados por região. O modelo com el niño não foi capaz de pegar as subidas no final da série do Sudeste e do Centro-Oeste. Não há uma grande diferença entre os três modelos. Isso pode ser reflexo da quantidade de dados para treinamento: 
+
+![](figures/comp_models_chikungunya_Sul_2023.png)
+
+![](figures/comp_models_chikungunya_Sudeste_2023.png)
+
+![](figures/comp_models_chikungunya_Centro-Oeste_2023.png)
+
+![](figures/comp_models_chikungunya_Nordeste_2023.png)
+
+![](figures/comp_models_chikungunya_Norte_2023.png)
+
+Performance do modelo por estado. Os estados estão agrupados de acordo com a região pertencente. 
+
+![](figures/comp_models_state_chikungunya_Sul_2023.png)
+![](figures/comp_models_state_chikungunya_Sudeste_2023.png)
+![](figures/comp_models_state_chikungunya_Centro-Oeste_2023.png)
+![](figures/comp_models_state_chikungunya_Nordeste_2023.png)
+![](figures/comp_models_state_chikungunya_Norte_2023.png)
