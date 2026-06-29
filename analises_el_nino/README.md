@@ -5,12 +5,12 @@ A seguir, são apresentados, por região e por estado, comparativos dos parâmet
 
 ## RO 
 
-![](figures/R0_dengue.png)
+![](figures/R0_Dengue.png)
 
 ### Por estado
 
 
-![](figures/sul_r0_dengue.png)
+![](figures/sul_r0_Dengue.png)
 ![](figures/sudeste_r0_dengue.png)
 ![](figures/centro_oeste_r0_dengue.png)
 ![](figures/nordeste_r0_dengue.png)
@@ -18,7 +18,7 @@ A seguir, são apresentados, por região e por estado, comparativos dos parâmet
 
 ## Semana de pico
 
-![](figures/semana_pico_dengue.png)
+![](figures/semana_pico_Dengue.png)
 
 ### Por estado
 
@@ -31,7 +31,7 @@ A seguir, são apresentados, por região e por estado, comparativos dos parâmet
 
 ## Casos totais
 
-![](figures/total_cases_dengue.png)
+![](figures/total_cases_Dengue.png)
 
 ### Por estado
 
@@ -46,7 +46,7 @@ A seguir, são apresentados, por região e por estado, comparativos dos parâmet
 
 ## RO 
 
-![](figures/R0_chikungunya.png)
+![](figures/R0_Chikungunya.png)
 
 ### Por estado
 
@@ -59,7 +59,7 @@ A seguir, são apresentados, por região e por estado, comparativos dos parâmet
 
 ## Semana de pico
 
-![](figures/semana_pico_chikungunya.png)
+![](figures/semana_pico_Chikungunya.png)
 
 ### Por estado
 
@@ -72,7 +72,7 @@ A seguir, são apresentados, por região e por estado, comparativos dos parâmet
 
 ## Casos totais
 
-![](figures/total_cases_chikungunya.png)
+![](figures/total_cases_Chikungunya.png)
 
 ### Por estado
 

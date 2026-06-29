@@ -953,6 +953,8 @@ def build_model(
     model_name,
     predict_n,
     max_epiweek,
+    base_model,
+    enso_model
 ):
     
     if "enso" in model_name:
@@ -979,7 +981,7 @@ def build_model(
             region,
             TEST_YEAR,
             doenca,
-            "base",
+            base_model,
             predict_n,
             max_epiweek,
             device="cpu",
@@ -989,7 +991,7 @@ def build_model(
             region,
             TEST_YEAR,
             doenca,
-            "enso_media",
+            enso_model,
             predict_n,
             max_epiweek,
             device="cpu",
@@ -1018,6 +1020,8 @@ def load_model(
     predict_n,
     max_epiweek,
     device,
+    base_model = '',
+    enso_model = ''
 ):
 
     model = build_model(
@@ -1027,6 +1031,8 @@ def load_model(
         model_name,
         predict_n,
         max_epiweek,
+        base_model = base_model,
+        enso_model = enso_model
     )
 
     model_path = (
