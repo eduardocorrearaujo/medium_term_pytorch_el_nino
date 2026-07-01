@@ -2,9 +2,9 @@
 
 ## Dengue 
 
-![](figures/forecast_all_regions_dengue_2_semester_mix_22_26.png)
+![](figures/forecast_all_regions_dengue_2_semester_enso_22_26_V3.png)
 
-![](figures/total_cases_all_regions_dengue.png)
+![](figures/total_cases_all_regions_dengue_enso_22_26_V3.png)
 
 ### Sul
 ![](figures/forecast_state_sul_zoom_dengue.png)
