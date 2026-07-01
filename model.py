@@ -251,6 +251,111 @@ class LSTMWithFutureCovariatesV2(nn.Module):
 
         return mu, sigma
     
+
+class LSTMWithFutureCovariatesV3(nn.Module):
+    def __init__(
+        self,
+        past_features,
+        future_cov_size,
+        predict_n,
+        hidden=64,
+        future_hidden=32,
+        dropout=0.2,
+    ):
+        super().__init__()
+
+        ###################################################
+        # 1. ENCODER DO PASSADO (Série Temporal de Casos)
+        ###################################################
+        self.encoder = LSTMEncoder(
+            input_size=past_features,
+            hidden_size=hidden,
+            dropout=dropout
+        )
+
+        ###################################################
+        # 2. ENCODER DO FUTURO (ANTI-EXTRAPOLAÇÃO)
+        ###################################################
+        # Trocamos a última ReLU por uma ativação limitada (Tanh) ou suavizada.
+        # Mas o truque principal está no passo 4.
+        self.future_encoder = nn.Sequential(
+            nn.Linear(future_cov_size, future_hidden),
+            nn.LayerNorm(future_hidden), 
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(future_hidden, future_hidden),
+            nn.Tanh() # MUDANÇA 1: Conclui em um espaço vetorial limitado [-1, 1]
+        )
+
+        ###################################################
+        # 3. DISTRIBUIÇÃO BASE (Depende apenas do Passado)
+        ###################################################
+        self.fc_mu = nn.Linear(hidden, predict_n)
+        self.fc_sigma = nn.Linear(hidden, predict_n)
+
+        ###################################################
+        # 4. ATUALIZAÇÕES FUTURAS LIMITADAS (O "Parachoque")
+        ###################################################
+        self.future_mu = nn.Linear(future_hidden, predict_n)
+        self.future_sigma = nn.Linear(future_hidden, predict_n)
+
+        ###################################################
+        # 5. GATES CONTEXTUAIS (Olham para o Passado E Futuro)
+        ###################################################
+        combined_dim = hidden + future_hidden
+
+        self.gate_mu = nn.Sequential(
+            nn.Linear(combined_dim, future_hidden),
+            nn.ReLU(),
+            nn.Linear(future_hidden, predict_n),
+            nn.Sigmoid()
+        )
+
+        self.gate_sigma = nn.Sequential(
+            nn.Linear(combined_dim, future_hidden),
+            nn.ReLU(),
+            nn.Linear(future_hidden, predict_n),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x_past, x_future):
+        # Extrai a representação do passado
+        h = self.encoder(x_past) 
+
+        # Previsão base (Epidemiologia pura - altamente estável)
+        mu_base = self.fc_mu(h)
+        sigma_base = F.softplus(self.fc_sigma(h)) + 1e-6
+
+        # Extrai a representação do clima (com saída limitada entre -1 e 1)
+        z_future = self.future_encoder(x_future) 
+
+        # MUDANÇA 2: Limitador físico do Delta (O "Parachoque")
+        # Em vez de deixar delta_mu livre, usamos Hardtanh ou Tanh escalada.
+        # Isso impede numericamente que o clima cause um impacto infinito.
+        raw_delta_mu = self.future_mu(z_future)
+        
+        # Limitamos o efeito do clima a, no máximo, duas vezes o desvio padrão ou um teto fixo
+        # (Ajuste o valor 3.0 para o limite máximo aceitável que o clima pode empurrar a curva)
+        delta_mu = F.hardtanh(raw_delta_mu, min_val=-3.0, max_val=3.0) 
+        
+        delta_sigma = F.softplus(self.future_sigma(z_future))
+
+        # Fusão de Contexto para os Gates
+        gate_context = torch.cat([h, z_future], dim=-1) 
+
+        g_mu = self.gate_mu(gate_context)
+        g_sigma = self.gate_sigma(gate_context)
+
+        # Atualização combinada protegida
+        # Mesmo que o clima dê um sinal extremo, delta_mu está travado em +-3.0
+        mu = mu_base + (g_mu * delta_mu)
+        sigma = sigma_base + (g_sigma * delta_sigma)
+
+        sigma = F.softplus(sigma) + 1e-6
+
+        return mu, sigma
+    
+    
 # ===============================
 # Train model 
 # ==============================
@@ -821,6 +926,105 @@ def sum_regions_predictions(
 
     return samples_to_quantiles(predicted, dates)
 
+def save_regional_samples_to_parquet(
+    model,
+    df,
+    enso,
+    test_year,
+    columns_to_normalize,
+    max_epiweek=25,
+    boxcox=False,
+    n_passes=500,
+    min_year=None,
+    media=False,
+):
+    """
+    Gera amostras de predição para cada regional e salva todas juntas 
+    em um único arquivo Parquet estruturado.
+    """
+    dates = prep.gen_forecast_dates(test_year, max_epiweek=max_epiweek)
+    forecast_weeks = 52 - max_epiweek
+    
+    # Lista para acumular os DataFrames de cada regional
+    all_regionals_data = []
+
+    # ---------------------------------------------------
+    # Iterar pelas regionais (Mesmo fluxo da sua função base)
+    # ---------------------------------------------------
+    for geo in df.regional_geocode.unique():
+
+        # Prepare data
+        data = prep.prepare_regional_data(
+            df=df,
+            geo=geo,
+            columns_to_normalize=columns_to_normalize,
+            enso=enso,
+            boxcox=boxcox,
+            media=media
+        )
+
+        # Train normalization
+        X_train, y_train, X_future_train, norm_values, norm_enso = prep.get_data(
+            df_w=data.loc[data.year < test_year],
+            columns_to_normalize=columns_to_normalize,
+            max_epiweek=max_epiweek,
+            min_year=min_year,
+            enso=(enso.loc[enso.index.year <= test_year] if enso is not None else None)
+        )
+
+        # Test data
+        X_test, y_test, X_future = prep.get_single_data(
+            df_w=data,
+            year=test_year,
+            norm_values=norm_values,
+            max_epiweek=max_epiweek,
+            columns_to_normalize=columns_to_normalize,
+            enso=enso,
+            norm_enso=norm_enso
+        )
+
+        # Predict
+        pred = evaluate_samples(model, X_test, X_future, n_passes=n_passes)
+
+        if pred.ndim == 3 and pred.shape[1] == 1:
+            pred = pred.squeeze(1)
+
+        # Desnormalização
+        pred = pred * norm_values['casos']
+        if boxcox:
+            pred = inv_boxcox(pred, THR) - 1
+
+        # ---------------------------------------------------
+        # ESTRUTURAÇÃO DAS AMOSTRAS DA REGIONAL
+        # pred shape: (n_passes, forecast_weeks)
+        # ---------------------------------------------------
+        # Criamos uma grade indexada por (pass_id, week_idx)
+        passes_idx, weeks_idx = np.indices(pred.shape)
+        
+        # Criamos o DataFrame plano para esta regional específica
+        regional_df = pd.DataFrame({
+            'regional_geocode': geo,
+            'pass_id': passes_idx.flatten(),
+            'date': np.array(dates)[weeks_idx.flatten()], # Mapeia o índice para a data real
+            'predicted_cases': pred.flatten()
+        })
+        
+        all_regionals_data.append(regional_df)
+
+    # ---------------------------------------------------
+    # CONCATENAÇÃO E SALVAMENTO EM PARQUET
+    # ---------------------------------------------------
+    # Junta o dado de todas as regionais em um blocão único
+    final_df = pd.concat(all_regionals_data, ignore_index=True)
+    
+    # Garante tipagem correta para otimizar o Parquet
+    final_df['regional_geocode'] = final_df['regional_geocode'].astype(str)
+    final_df['pass_id'] = final_df['pass_id'].astype(np.int32)
+    final_df['predicted_cases'] = final_df['predicted_cases'].astype(np.float32)
+        
+    return final_df
+
+
 def get_total_cases(preds, region, model_name, region_col = 'regional_geocode'): 
 
     sum_preds = preds.sum(axis =1)
@@ -959,7 +1163,7 @@ def build_model(
     
     if "enso" in model_name:
 
-        return LSTMWithFutureCovariatesV2(
+        return LSTMWithFutureCovariatesV3(
             hidden=64,
             past_features=5,
             future_cov_size=predict_n,

@@ -238,3 +238,111 @@ class MAELoss(nn.Module):
         mae_loss = self.mae(mu, target)
 
         return mae_loss
+
+
+class WeightedWISLossFromDistribution(nn.Module):
+    def __init__(
+        self,
+        alphas=[0.5, 0.2, 0.1, 0.05],
+        reduction="mean",
+        eps=1e-6,
+        horizon=30,
+        first_n=4,
+        last_n=8,
+        first_weight=2.0,
+        last_weight=2.0,
+    ):
+        """
+        Weighted Interval Score (WIS) loss with horizon-specific weights.
+
+        Parameters
+        ----------
+        alphas : list
+            Significance levels used to compute prediction intervals.
+        reduction : str
+            'mean', 'sum', or None.
+        eps : float
+            Minimum value for numerical stability.
+        horizon : int
+            Number of prediction steps.
+        first_n : int
+            Number of initial horizons to receive extra weight.
+        last_n : int
+            Number of final horizons to receive extra weight.
+        first_weight : float
+            Weight applied to the first_n horizons.
+        last_weight : float
+            Weight applied to the last_n horizons.
+        """
+        super().__init__()
+
+        self.alphas = alphas
+        self.reduction = reduction
+        self.w0 = 0.5
+        self.wks = [alpha / 2.0 for alpha in alphas]
+        self.K = len(alphas)
+        self.eps = eps
+
+        # Horizon weights
+        weights = torch.ones(horizon)
+
+        if first_n > 0:
+            weights[:first_n] = first_weight
+
+        if last_n > 0:
+            weights[-last_n:] = last_weight
+
+        # Normalize so the average weight is 1
+        weights = weights / weights.mean()
+
+        self.register_buffer("horizon_weights", weights)
+
+    def interval_score(self, lower, upper, target, alpha):
+        width = upper - lower
+
+        below = (target < lower).float()
+        above = (target > upper).float()
+
+        penalty = (2.0 / alpha) * (
+            (lower - target) * below +
+            (target - upper) * above
+        )
+
+        return width + penalty
+
+    def forward(self, mu, sigma, target):
+        """
+        Parameters
+        ----------
+        mu : Tensor (batch, horizon)
+        sigma : Tensor (batch, horizon)
+        target : Tensor (batch, horizon)
+        """
+
+        sigma = torch.clamp(sigma, min=self.eps)
+        target = torch.clamp(target, min=self.eps)
+
+        dist = torch.distributions.LogNormal(mu, sigma)
+
+        # Median
+        q50 = dist.icdf(torch.full_like(mu, 0.5))
+
+        wis = self.w0 * torch.abs(q50 - target)
+
+        for alpha, wk in zip(self.alphas, self.wks):
+            lower = dist.icdf(torch.full_like(mu, alpha / 2))
+            upper = dist.icdf(torch.full_like(mu, 1 - alpha / 2))
+
+            wis += wk * self.interval_score(lower, upper, target, alpha)
+
+        wis = wis / (self.K + 0.5)
+
+        # Apply horizon weights
+        wis = wis * self.horizon_weights
+
+        if self.reduction == "mean":
+            return wis.mean()
+        elif self.reduction == "sum":
+            return wis.sum()
+        else:
+            return wis

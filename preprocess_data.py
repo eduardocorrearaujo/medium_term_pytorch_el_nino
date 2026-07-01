@@ -186,7 +186,7 @@ def _build_input_window(df, year, max_epiweek, columns):
     """
     mask = (
         ((df.year < year) & (df.year >= year - 1))
-        | ((df.year == year) & (df.epiweek <= max_epiweek / 52))
+        | ((df.year == year) & (df.epiweek <= max_epiweek / 49.4))
     )
 
     values = []
@@ -211,22 +211,17 @@ def get_data(
     enso=None
 ):
     """
-    Retorna dados de treinamento.
-
-    Returns
-    -------
-    X_train : torch.Tensor
-    y_train : torch.Tensor
-    X_future : torch.Tensor or None
-    norm_values : pd.Series
-    norm_enso : float or None
+    Retorna dados de treinamento usando normalização robusta por percentil 95.
     """
 
     forecast_weeks = 52 - max_epiweek
 
     df_w = df_w.copy()
 
-    norm_values = df_w[columns_to_normalize].max()
+    # SUBSTITUÍDO: .max() por .quantile(0.95) robusto
+    norm_values = df_w[columns_to_normalize].quantile(0.95)
+    # Garante que não haverá divisão por zero ou valores negativos
+    norm_values = norm_values.clip(lower=1e-5)
 
     df_w[columns_to_normalize] = (
         df_w[columns_to_normalize] / norm_values
@@ -237,7 +232,10 @@ def get_data(
     if enso is not None:
         enso = enso.copy()
 
-        norm_enso = enso['enso'].max()
+        # SUBSTITUÍDO: .max() por .quantile(0.95) robusto para o ENSO
+        norm_enso = enso['enso'].quantile(0.95)
+        if norm_enso <= 0:
+            norm_enso = 1.0
 
         enso['enso'] = enso['enso'] / norm_enso
 
@@ -264,7 +262,7 @@ def get_data(
         y = (
             df_w.loc[
                 (df_w.year == year)
-                & (df_w.epiweek > max_epiweek / 52),
+                & (df_w.epiweek > max_epiweek / 49.4),
                 'casos'
             ]
             .values
@@ -350,7 +348,7 @@ def get_single_data(
     y = (
         df_w.loc[
             (df_w.year == year)
-            & (df_w.epiweek > max_epiweek / 52),
+            & (df_w.epiweek > max_epiweek / 49.4),
             'casos'
         ]
         .values
