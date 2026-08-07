@@ -276,15 +276,13 @@ class LSTMWithFutureCovariatesV3(nn.Module):
         ###################################################
         # 2. ENCODER DO FUTURO (ANTI-EXTRAPOLAÇÃO)
         ###################################################
-        # Trocamos a última ReLU por uma ativação limitada (Tanh) ou suavizada.
-        # Mas o truque principal está no passo 4.
         self.future_encoder = nn.Sequential(
             nn.Linear(future_cov_size, future_hidden),
             nn.LayerNorm(future_hidden), 
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(future_hidden, future_hidden),
-            nn.Tanh() # MUDANÇA 1: Conclui em um espaço vetorial limitado [-1, 1]
+            nn.Tanh() 
         )
 
         ###################################################
@@ -294,7 +292,7 @@ class LSTMWithFutureCovariatesV3(nn.Module):
         self.fc_sigma = nn.Linear(hidden, predict_n)
 
         ###################################################
-        # 4. ATUALIZAÇÕES FUTURAS LIMITADAS (O "Parachoque")
+        # 4. ATUALIZAÇÕES FUTURAS LIMITADAS 
         ###################################################
         self.future_mu = nn.Linear(future_hidden, predict_n)
         self.future_sigma = nn.Linear(future_hidden, predict_n)
@@ -329,7 +327,7 @@ class LSTMWithFutureCovariatesV3(nn.Module):
         # Extrai a representação do clima (com saída limitada entre -1 e 1)
         z_future = self.future_encoder(x_future) 
 
-        # MUDANÇA 2: Limitador físico do Delta (O "Parachoque")
+        # MUDANÇA 2: Limitador físico do Delta
         # Em vez de deixar delta_mu livre, usamos Hardtanh ou Tanh escalada.
         # Isso impede numericamente que o clima cause um impacto infinito.
         raw_delta_mu = self.future_mu(z_future)
